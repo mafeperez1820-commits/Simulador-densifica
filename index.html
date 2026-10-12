@@ -1,3 +1,1136 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DENSIFICA — Simulador de Densificación y Costos de Edificación Vertical</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        architectural: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            accent: '#0f766e', // Teal / architectural blue-green
+                            accentHover: '#115e59',
+                            dark: '#090d16',
+                            card: '#ffffff',
+                            border: '#e2e8f0'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'DM Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40f,100..1000;1,9..40f,100..1000&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom scrollbar for professional look */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col antialiased selection:bg-teal-700 selection:text-white">
+
+    <!-- LANDING / WELCOME SCREEN -->
+    <div id="welcome-screen" class="fixed inset-0 z-50 bg-[#090d16] text-white flex flex-col justify-between p-8 md:p-16 transition-opacity duration-700">
+        <div class="max-w-7xl mx-auto w-full flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-teal-600 flex items-center justify-center font-bold text-lg tracking-tighter">D</div>
+                <span class="font-bold tracking-widest text-lg">DENSIFICA</span>
+            </div>
+            <div class="text-xs uppercase tracking-widest text-slate-400">Álgebra y Geometría Analítica Aplicada · 2026-II</div>
+        </div>
+        
+        <div class="max-w-4xl mx-auto w-full space-y-8 my-auto">
+            <div class="inline-block px-3 py-1 bg-teal-950 border border-teal-800 text-teal-400 text-xs font-mono uppercase tracking-widest rounded">
+                Simulador Académico de Edificación Vertical
+            </div>
+            <h1 class="text-5xl md:text-7xl font-light tracking-tight leading-none">
+                DENSIFICA <span class="font-bold text-teal-400">SIMULATOR</span>
+            </h1>
+            <p class="text-lg md:text-xl text-slate-300 font-light max-w-2xl leading-relaxed">
+                “Explora cómo la altura, la densidad, la eficiencia espacial y los costos interactúan dentro de un proyecto de edificación vertical mediante modelos matemáticos exactos.”
+            </p>
+            <div class="pt-4 flex flex-wrap gap-4">
+                <button onclick="app.startSimulator()" class="px-8 py-4 bg-teal-600 hover:bg-teal-500 text-white font-medium text-sm tracking-wider uppercase transition-all flex items-center space-x-3 group shadow-lg shadow-teal-900/30">
+                    <span>INICIAR SIMULADOR</span>
+                    <span class="group-hover:translate-x-1 transition-transform">→</span>
+                </button>
+                <button onclick="app.loadExampleProject(); app.startSimulator();" class="px-6 py-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-sm tracking-wider uppercase transition-all border border-slate-700">
+                    Cargar Proyecto Ejemplo
+                </button>
+            </div>
+        </div>
+
+        <div class="max-w-7xl mx-auto w-full flex flex-col md:flex-row justify-between items-center text-xs text-slate-500 border-t border-slate-800/80 pt-6">
+            <p>Facultad de Arquitectura · Universidad Nacional · 2026</p>
+            <p class="mt-2 md:mt-0 font-mono">Three.js · Chart.js · Ecuaciones Lineales y Cuadráticas</p>
+        </div>
+    </div>
+
+    <!-- MAIN APP WRAPPER -->
+    <div id="main-app" class="hidden flex-1 flex flex-col h-full overflow-hidden bg-slate-50">
+        <!-- HEADER -->
+        <header class="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap justify-between items-center z-20 shrink-0">
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-7 h-7 bg-teal-700 text-white flex items-center justify-center font-bold text-sm">D</div>
+                    <span class="font-bold text-slate-900 tracking-wider text-base">DENSIFICA</span>
+                </div>
+                <span class="hidden md:inline text-slate-300">|</span>
+                <span class="text-xs text-slate-500 font-medium hidden md:inline">Simulador de Densificación y Costos de Edificación Vertical</span>
+            </div>
+
+            <div class="flex items-center space-x-3 mt-2 sm:mt-0">
+                <div class="hidden lg:flex items-center space-x-2 mr-4 bg-slate-100 px-3 py-1 rounded text-xs text-slate-600">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Simulación Activa</span>
+                </div>
+                <button onclick="app.resetProject()" class="px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition rounded flex items-center space-x-1">
+                    <span>Reiniciar</span>
+                </button>
+                <button onclick="app.loadExampleProject()" class="px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition rounded flex items-center space-x-1">
+                    <span>Cargar Ejemplo</span>
+                </button>
+                <button onclick="app.triggerDemoMode()" class="px-3 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 transition rounded shadow-sm flex items-center space-x-1">
+                    <span>Modo Demo</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- APP CONTENT BODY -->
+        <div class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+            
+            <!-- LEFT PANEL: CONFIG & LEVELS -->
+            <aside class="w-full lg:w-[420px] bg-white border-r border-slate-200 flex flex-col h-full z-10 shrink-0 shadow-sm">
+                <!-- Tabs for left panel -->
+                <div class="flex border-b border-slate-200 bg-slate-50/50">
+                    <button onclick="app.switchTab('levels')" id="tab-btn-levels" class="flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-teal-700 border-b-2 border-teal-700 bg-white transition">Niveles & Uso</button>
+                    <button onclick="app.switchTab('config')" id="tab-btn-config" class="flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition">Proyecto & Costos</button>
+                </div>
+
+                <!-- Tab Content: Levels -->
+                <div id="tab-content-levels" class="flex-1 overflow-y-auto p-5 space-y-6">
+                    <!-- Lot Config Quick summary card -->
+                    <div class="bg-slate-50 border border-slate-200 rounded p-4 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Geometría del Lote</h3>
+                            <button onclick="app.switchTab('config')" class="text-xs text-teal-700 hover:underline">Editar</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <span class="text-slate-500 block">Dimensiones:</span>
+                                <span id="summary-dimensions" class="font-mono font-medium text-slate-800">20m × 30m</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block">Área Lote:</span>
+                                <span id="summary-lot-area" class="font-mono font-medium text-slate-800">600,00 m²</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block">Huella Edificio:</span>
+                                <span id="summary-footprint" class="font-mono font-medium text-slate-800">600,00 m²</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block">Niveles Totales:</span>
+                                <span id="summary-level-count" class="font-mono font-medium text-teal-700 font-bold">4</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Levels Management Header & Add Button -->
+                    <div class="flex justify-between items-center pt-2">
+                        <div>
+                            <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Administración de Niveles</h2>
+                            <p class="text-xs text-slate-500">Agrega, edita o elimina pisos del edificio</p>
+                        </div>
+                        <button onclick="app.addLevel()" class="px-3 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold uppercase tracking-wider transition rounded shadow-sm flex items-center space-x-1">
+                            <span>+ Agregar Nivel</span>
+                        </button>
+                    </div>
+
+                    <!-- Levels List Container -->
+                    <div id="levels-container" class="space-y-3">
+                        <!-- Levels will be dynamically inserted here -->
+                    </div>
+                </div>
+
+                <!-- Tab Content: Config & Costs -->
+                <div id="tab-content-config" class="hidden flex-1 overflow-y-auto p-5 space-y-6">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Configuración del Lote</h2>
+                        <p class="text-xs text-slate-500">Define las dimensiones base del terreno</p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Ancho del Lote (metros)</label>
+                            <input type="number" id="input-lot-width" min="5" max="200" step="1" value="20" onchange="app.updateLotConfig()" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:border-teal-700 font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Largo del Lote (metros)</label>
+                            <input type="number" id="input-lot-length" min="5" max="200" step="1" value="30" onchange="app.updateLotConfig()" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:border-teal-700 font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Huella Ocupada por el Edificio (m²)</label>
+                            <input type="number" id="input-footprint" min="10" max="10000" step="1" value="600" onchange="app.updateLotConfig()" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:border-teal-700 font-mono">
+                            <span class="text-[10px] text-slate-500 mt-1 block">No puede exceder el área total del lote.</span>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-200">
+
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Parámetros Económicos ($ COP)</h2>
+                        <p class="text-xs text-slate-500">Costos referenciales por metro cuadrado y fijos</p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Valor m² Comercial</label>
+                            <input type="number" id="cost-commercial" min="100000" step="50000" value="3500000" onchange="app.updateEconomicConfig()" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:border-teal-700 font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Valor m² Oficinas</label>
+                            <input type="number" id="cost-offices" min="100000" step="50000" value="3000000" onchange="app.updateEconomicConfig()" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:border-teal-700 font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Valor m² Residencial</label>
+                            <input type="number" id="cost-residential" min="100000" step="50000" value="2500000" onchange="app.updateEconomicConfig()" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:border-teal-700 font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Costos Fijos del Proyecto (C₀)</label>
+                            <input type="number" id="cost-fixed" min="0" step="1000000" value="450000000" onchange="app.updateEconomicConfig()" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:border-teal-700 font-mono">
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-200">
+
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Parámetro Núcleo (Ecuación Cuadrática)</h2>
+                        <p class="text-xs text-slate-500">Modelo académico A(x) = -x² + bx</p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Parámetro b</label>
+                            <input type="number" id="param-b" min="1" max="100" step="0.5" value="15" onchange="app.updateEconomicConfig()" class="w-full px-3 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:border-teal-700 font-mono">
+                            <span class="text-[10px] text-slate-500 mt-1 block">Controla la pendiente de crecimiento del núcleo central de circulación.</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- CENTRAL ZONE: 3D VIEWER -->
+            <main class="flex-1 flex flex-col h-full relative overflow-hidden bg-slate-900">
+                <!-- 3D Canvas Container -->
+                <div id="canvas-container" class="flex-1 w-full h-full relative cursor-grab active:cursor-grabbing"></div>
+
+                <!-- Floating 3D HUD controls -->
+                <div class="absolute top-4 left-4 z-10 flex flex-wrap gap-2">
+                    <button onclick="app.resetCamera()" class="px-3 py-1.5 bg-slate-900/80 backdrop-blur border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs rounded transition flex items-center space-x-1 shadow">
+                        <span>Restablecer Cámara</span>
+                    </button>
+                    <button onclick="app.toggleGrid()" id="btn-toggle-grid" class="px-3 py-1.5 bg-slate-900/80 backdrop-blur border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs rounded transition flex items-center space-x-1 shadow">
+                        <span>Cuadrícula: On</span>
+                    </button>
+                    <button onclick="app.toggleProjection()" id="btn-toggle-projection" class="px-3 py-1.5 bg-slate-900/80 backdrop-blur border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs rounded transition flex items-center space-x-1 shadow">
+                        <span>Perspectiva</span>
+                    </button>
+                </div>
+
+                <!-- Floating 3D Hover Tooltip -->
+                <div id="viewer-tooltip" class="absolute bottom-6 left-6 z-10 bg-slate-900/90 backdrop-blur border border-slate-700 text-slate-200 px-4 py-3 rounded shadow-xl text-xs pointer-events-none hidden max-w-xs">
+                    <div id="tooltip-title" class="font-bold text-teal-400 mb-1">Nivel</div>
+                    <div id="tooltip-body" class="space-y-0.5 text-slate-300 font-mono"></div>
+                </div>
+
+                <!-- Floating Legend -->
+                <div class="absolute top-4 right-4 z-10 bg-slate-900/80 backdrop-blur border border-slate-700 p-3 rounded text-[11px] text-slate-300 space-y-1.5 shadow hidden sm:block">
+                    <div class="font-semibold text-slate-200 mb-1 uppercase tracking-wider text-[10px]">Leyenda de Usos</div>
+                    <div class="flex items-center space-x-2">
+                        <span class="w-3 h-3 bg-amber-600 rounded-sm inline-block"></span>
+                        <span>Comercial</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="w-3 h-3 bg-sky-600 rounded-sm inline-block"></span>
+                        <span>Oficinas</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="w-3 h-3 bg-emerald-600 rounded-sm inline-block"></span>
+                        <span>Residencial</span>
+                    </div>
+                    <div class="flex items-center space-x-2 pt-1 border-t border-slate-700">
+                        <span class="w-3 h-3 bg-slate-400 rounded-sm inline-block"></span>
+                        <span>Núcleo Central</span>
+                    </div>
+                </div>
+            </main>
+
+            <!-- RIGHT PANEL / BOTTOM: METRICS & CHARTS -->
+            <aside class="w-full lg:w-[480px] bg-white border-l border-slate-200 flex flex-col h-full z-10 shrink-0 overflow-y-auto">
+                <!-- Section Tabs -->
+                <div class="flex border-b border-slate-200 bg-slate-50/50 shrink-0">
+                    <button onclick="app.switchRightTab('metrics')" id="right-tab-btn-metrics" class="flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-teal-700 border-b-2 border-teal-700 bg-white transition">Dashboard & Métricas</button>
+                    <button onclick="app.switchRightTab('math')" id="right-tab-btn-math" class="flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition">Matemática Aplicada</button>
+                    <button onclick="app.switchRightTab('charts')" id="right-tab-btn-charts" class="flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition">Gráficas</button>
+                </div>
+
+                <!-- Right Content: Metrics Dashboard -->
+                <div id="right-content-metrics" class="p-6 space-y-6">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Dashboard de Métricas</h2>
+                        <p class="text-xs text-slate-500">Valores calculados en tiempo real por el motor matemático</p>
+                    </div>
+
+                    <!-- Primary Budget Banner -->
+                    <div class="bg-teal-900 text-white p-5 rounded shadow-sm space-y-2">
+                        <div class="text-xs uppercase tracking-widest text-teal-300 font-mono">Presupuesto Estimado Total</div>
+                        <div id="metric-total-budget" class="text-2xl md:text-3xl font-bold font-mono tracking-tight">$ 0 COP</div>
+                        <div class="flex justify-between items-center text-xs text-teal-200/80 pt-2 border-t border-teal-800">
+                            <span>Costo promedio m²:</span>
+                            <span id="metric-avg-m2-cost" class="font-mono font-bold text-white">$ 0 COP / m²</span>
+                        </div>
+                    </div>
+
+                    <!-- Metrics Grid -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded">
+                            <span class="text-xs text-slate-500 block">Altura Total</span>
+                            <span id="metric-total-height" class="text-lg font-bold font-mono text-slate-800">0,00 m</span>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded">
+                            <span class="text-xs text-slate-500 block">Número de Niveles</span>
+                            <span id="metric-level-count" class="text-lg font-bold font-mono text-slate-800">0</span>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded">
+                            <span class="text-xs text-slate-500 block">Área del Lote</span>
+                            <span id="metric-lot-area" class="text-lg font-bold font-mono text-slate-800">0,00 m²</span>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded">
+                            <span class="text-xs text-slate-500 block">Área Construida</span>
+                            <span id="metric-constructed-area" class="text-lg font-bold font-mono text-slate-800">0,00 m²</span>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded">
+                            <span class="text-xs text-slate-500 block">Volumen Geométrico</span>
+                            <span id="metric-volume" class="text-lg font-bold font-mono text-slate-800">0,00 m³</span>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded">
+                            <span class="text-xs text-slate-500 block">Área Núcleo (A(x))</span>
+                            <span id="metric-core-area" class="text-lg font-bold font-mono text-slate-800">0,00 m²</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded space-y-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-500">Área Útil Estimada ($A_u$):</span>
+                            <span id="metric-usable-area" class="font-mono font-bold text-slate-800">0,00 m²</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-500">Costos Fijos ($C_0$):</span>
+                            <span id="metric-fixed-cost-display" class="font-mono font-bold text-slate-800">$ 0 COP</span>
+                        </div>
+                    </div>
+
+                    <div class="text-[11px] text-slate-400 bg-slate-50 p-3 rounded border border-slate-200/60 leading-relaxed">
+                        <strong>Nota académica:</strong> Los cálculos volumétricos y económicos son estimaciones paramétricas para prácticas universitarias de álgebra y geometría analítica aplicada.
+                    </div>
+                </div>
+
+                <!-- Right Content: Applied Mathematics Panel -->
+                <div id="right-content-math" class="hidden p-6 space-y-6">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Matemática Aplicada al Proyecto</h2>
+                        <p class="text-xs text-slate-500">Fórmulas, sustitución de variables y valores actuales</p>
+                    </div>
+
+                    <!-- Formula 1 -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-teal-700 uppercase tracking-wider">01. Operaciones con Decimales (Altura)</span>
+                            <span class="text-[10px] font-mono bg-teal-100 text-teal-800 px-2 py-0.5 rounded">H = Σ hᵢ</span>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            La altura total del edificio se obtiene sumando con precisión las alturas individuales de cada nivel.
+                        </p>
+                        <div class="bg-white border border-slate-200 p-3 rounded font-mono text-xs text-slate-700 space-y-1">
+                            <div class="text-slate-400 text-[10px] uppercase">Sustitución actual:</div>
+                            <div id="math-formula-height-sub" class="break-words">H = 0</div>
+                            <div class="pt-1 border-t border-slate-100 font-bold text-teal-700" id="math-formula-height-res">Resultado H = 0,00 m</div>
+                        </div>
+                    </div>
+
+                    <!-- Formula 2 -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-teal-700 uppercase tracking-wider">02. Ecuación Lineal (Presupuesto)</span>
+                            <span class="text-[10px] font-mono bg-teal-100 text-teal-800 px-2 py-0.5 rounded">C = A × Vₘ₂ + C₀</span>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            El costo de construcción por nivel es linealmente proporcional a su área y al valor por metro cuadrado según su uso, sumando los costos fijos globales.
+                        </p>
+                        <div class="bg-white border border-slate-200 p-3 rounded font-mono text-xs text-slate-700 space-y-1">
+                            <div class="text-slate-400 text-[10px] uppercase">Sustitución actual:</div>
+                            <div id="math-formula-cost-sub" class="break-words">Cₜ = Σ (Aᵢ × Vₘ₂) + C₀</div>
+                            <div class="pt-1 border-t border-slate-100 font-bold text-teal-700" id="math-formula-cost-res">Resultado Cₜ = $ 0 COP</div>
+                        </div>
+                    </div>
+
+                    <!-- Formula 3 -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-teal-700 uppercase tracking-wider">03. Ecuación Cuadrática (Núcleo)</span>
+                            <span class="text-[10px] font-mono bg-teal-100 text-teal-800 px-2 py-0.5 rounded">A(x) = -x² + bx</span>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            Modelo parabólico para estimar el área teórica del núcleo de circulación en función del número de niveles ($x$) y el parámetro $b$.
+                        </p>
+                        <div class="bg-white border border-slate-200 p-3 rounded font-mono text-xs text-slate-700 space-y-1">
+                            <div class="text-slate-400 text-[10px] uppercase">Sustitución actual:</div>
+                            <div id="math-formula-core-sub" class="break-words">A(x) = -(0)² + b(0)</div>
+                            <div class="pt-1 border-t border-slate-100 font-bold text-teal-700" id="math-formula-core-res">Resultado A(x) = 0,00 m²</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Content: Charts -->
+                <div id="right-content-charts" class="hidden p-6 space-y-6">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Gráficas Analíticas</h2>
+                        <p class="text-xs text-slate-500">Visualización Chart.js de presupuesto, áreas y alturas</p>
+                    </div>
+
+                    <!-- Chart 1 -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded space-y-2">
+                        <div class="text-xs font-bold text-slate-700 uppercase">Crecimiento del Presupuesto por Nivel</div>
+                        <div class="h-48 relative">
+                            <canvas id="chart-budget"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 2 -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded space-y-2">
+                        <div class="text-xs font-bold text-slate-700 uppercase">Área Construida vs Área Núcleo</div>
+                        <div class="h-48 relative">
+                            <canvas id="chart-areas"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 3 -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded space-y-2">
+                        <div class="text-xs font-bold text-slate-700 uppercase">Altura Acumulada del Edificio</div>
+                        <div class="h-48 relative">
+                            <canvas id="chart-height"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer info -->
+                <div class="p-4 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-500 mt-auto shrink-0">
+                    <p class="font-semibold text-slate-700">DENSIFICA · Arquitectura 2026-II</p>
+                    <p class="mt-0.5">Simulador académico de Álgebra y Geometría Analítica aplicada.</p>
+                </div>
+            </aside>
+
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APPLICATION CORE -->
+    <script>
+        class DensificaApp {
+            constructor() {
+                // Initial State
+                this.state = {
+                    lot: {
+                        width: 20,
+                        length: 30,
+                        footprint: 600
+                    },
+                    costs: {
+                        commercial: 3500000,
+                        offices: 3000000,
+                        residential: 2500000,
+                        fixed: 450000000,
+                        bParam: 15
+                    },
+                    levels: [
+                        { id: 1, use: 'Comercial', height: 3.25 },
+                        { id: 2, use: 'Residencial', height: 2.80 },
+                        { id: 3, use: 'Oficinas', height: 3.00 },
+                        { id: 4, use: 'Residencial', height: 2.80 }
+                    ],
+                    activeTab: 'levels',
+                    rightTab: 'metrics',
+                    selectedLevelId: null
+                };
+
+                // Three.js variables
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.controls = null;
+                this.levelMeshes = [];
+                this.gridHelper = null;
+                this.raycaster = new THREE.Raycaster();
+                this.mouse = new THREE.Vector2();
+                this.isOrthographic = false;
+                this.showGrid = true;
+
+                // Chart.js instances
+                this.budgetChart = null;
+                this.areasChart = null;
+                this.heightChart = null;
+
+                this.initApp();
+            }
+
+            initApp() {
+                // Bind UI inputs to state
+                this.syncInputsFromState();
+            }
+
+            startSimulator() {
+                document.getElementById('welcome-screen').classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => {
+                    document.getElementById('welcome-screen').style.display = 'none';
+                    document.getElementById('main-app').classList.remove('hidden');
+                    this.initThreeJS();
+                    this.initCharts();
+                    this.fullUpdate();
+                    window.addEventListener('resize', () => this.onWindowResize());
+                }, 700);
+            }
+
+            syncInputsFromState() {
+                document.getElementById('input-lot-width').value = this.state.lot.width;
+                document.getElementById('input-lot-length').value = this.state.lot.length;
+                document.getElementById('input-footprint').value = this.state.lot.footprint;
+                document.getElementById('cost-commercial').value = this.state.costs.commercial;
+                document.getElementById('cost-offices').value = this.state.costs.offices;
+                document.getElementById('cost-residential').value = this.state.costs.residential;
+                document.getElementById('cost-fixed').value = this.state.costs.fixed;
+                document.getElementById('param-b').value = this.state.costs.bParam;
+            }
+
+            // --- MATHEMATICAL ENGINE FUNCTIONS ---
+            calculateLotArea() {
+                return this.state.lot.width * this.state.lot.length;
+            }
+
+            calculateTotalHeight() {
+                let sum = 0;
+                for (let lvl of this.state.levels) {
+                    sum += Number(lvl.height);
+                }
+                return sum;
+            }
+
+            calculateConstructionArea() {
+                return this.state.lot.footprint * this.state.levels.length;
+            }
+
+            calculateVolume() {
+                return this.state.lot.footprint * this.calculateTotalHeight();
+            }
+
+            calculateCoreArea() {
+                let x = this.state.levels.length;
+                let b = Number(this.state.costs.bParam);
+                let area = - (x * x) + (b * x);
+                return area;
+            }
+
+            calculateUsableArea() {
+                let totalBuilt = this.calculateConstructionArea();
+                let coreTotal = Math.max(0, this.calculateCoreArea());
+                return Math.max(0, totalBuilt - coreTotal);
+            }
+
+            calculateLevelCost(lvl) {
+                let areaPerLevel = this.state.lot.footprint;
+                let rate = this.state.costs.residential;
+                if (lvl.use === 'Comercial') rate = this.state.costs.commercial;
+                if (lvl.use === 'Oficinas') rate = this.state.costs.offices;
+                return areaPerLevel * rate;
+            }
+
+            calculateTotalCost() {
+                let levelsCost = 0;
+                for (let lvl of this.state.levels) {
+                    levelsCost += this.calculateLevelCost(lvl);
+                }
+                return levelsCost + Number(this.state.costs.fixed);
+            }
+
+            calculateAverageCostPerSquareMeter() {
+                let totalArea = this.calculateConstructionArea();
+                if (totalArea <= 0) return 0;
+                return this.calculateTotalCost() / totalArea;
+            }
+
+            // --- FORMATTERS ---
+            formatCurrency(val) {
+                return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
+            }
+
+            formatNumber(val, decimals = 2) {
+                return new Intl.NumberFormat('es-CO', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val);
+            }
+
+            // --- STATE UPDATES & ACTIONS ---
+            updateLotConfig() {
+                let w = parseFloat(document.getElementById('input-lot-width').value) || 10;
+                let l = parseFloat(document.getElementById('input-lot-length').value) || 10;
+                let fp = parseFloat(document.getElementById('input-footprint').value) || (w * l);
+
+                if (w < 5) w = 5;
+                if (l < 5) l = 5;
+                let maxLotArea = w * l;
+                if (fp > maxLotArea) fp = maxLotArea;
+                if (fp < 10) fp = 10;
+
+                this.state.lot.width = w;
+                this.state.lot.length = l;
+                this.state.lot.footprint = fp;
+
+                document.getElementById('input-footprint').value = fp;
+                this.fullUpdate();
+            }
+
+            updateEconomicConfig() {
+                this.state.costs.commercial = parseFloat(document.getElementById('cost-commercial').value) || 0;
+                this.state.costs.offices = parseFloat(document.getElementById('cost-offices').value) || 0;
+                this.state.costs.residential = parseFloat(document.getElementById('cost-residential').value) || 0;
+                this.state.costs.fixed = parseFloat(document.getElementById('cost-fixed').value) || 0;
+                this.state.costs.bParam = parseFloat(document.getElementById('param-b').value) || 0;
+                this.fullUpdate();
+            }
+
+            addLevel() {
+                if (this.state.levels.length >= 50) {
+                    alert('Se ha alcanzado el límite máximo de 50 niveles.');
+                    return;
+                }
+                let newId = this.state.levels.length > 0 ? Math.max(...this.state.levels.map(l => l.id)) + 1 : 1;
+                // Alternate or default to Residencial
+                let defaultUse = 'Residencial';
+                let defaultHeight = 2.80;
+                this.state.levels.push({ id: newId, use: defaultUse, height: defaultHeight });
+                this.fullUpdate();
+            }
+
+            duplicateLevel(id) {
+                if (this.state.levels.length >= 50) return;
+                let lvl = this.state.levels.find(l => l.id === id);
+                if (!lvl) return;
+                let newId = Math.max(...this.state.levels.map(l => l.id)) + 1;
+                this.state.levels.push({ id: newId, use: lvl.use, height: lvl.height });
+                this.fullUpdate();
+            }
+
+            deleteLevel(id) {
+                if (this.state.levels.length <= 1) {
+                    alert('El edificio debe tener al menos un nivel.');
+                    return;
+                }
+                this.state.levels = this.state.levels.filter(l => l.id !== id);
+                this.fullUpdate();
+            }
+
+            updateLevelProperty(id, prop, value) {
+                let lvl = this.state.levels.find(l => l.id === id);
+                if (!lvl) return;
+
+                if (prop === 'use') {
+                    lvl.use = value;
+                    if (value === 'Comercial') lvl.height = 3.25;
+                    else if (value === 'Oficinas') lvl.height = 3.00;
+                    else if (value === 'Residencial') lvl.height = 2.80;
+                } else if (prop === 'height') {
+                    let h = parseFloat(value);
+                    if (isNaN(h) || h < 2.0) h = 2.0;
+                    if (h > 10.0) h = 10.0;
+                    lvl.height = h;
+                }
+                this.fullUpdate();
+            }
+
+            resetProject() {
+                this.state.lot = { width: 20, length: 30, footprint: 600 };
+                this.state.costs = { commercial: 3500000, offices: 3000000, residential: 2500000, fixed: 450000000, bParam: 15 };
+                this.state.levels = [
+                    { id: 1, use: 'Comercial', height: 3.25 },
+                    { id: 2, use: 'Residencial', height: 2.80 },
+                    { id: 3, use: 'Oficinas', height: 3.00 },
+                    { id: 4, use: 'Residencial', height: 2.80 }
+                ];
+                this.syncInputsFromState();
+                this.fullUpdate();
+            }
+
+            loadExampleProject() {
+                this.resetProject();
+            }
+
+            triggerDemoMode() {
+                this.loadExampleProject();
+                // Highlight or open right panel charts
+                this.switchRightTab('charts');
+            }
+
+            switchTab(tab) {
+                this.state.activeTab = tab;
+                if (tab === 'levels') {
+                    document.getElementById('tab-btn-levels').className = "flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-teal-700 border-b-2 border-teal-700 bg-white transition";
+                    document.getElementById('tab-btn-config').className = "flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition";
+                    document.getElementById('tab-content-levels').classList.remove('hidden');
+                    document.getElementById('tab-content-config').classList.add('hidden');
+                } else {
+                    document.getElementById('tab-btn-config').className = "flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-teal-700 border-b-2 border-teal-700 bg-white transition";
+                    document.getElementById('tab-btn-levels').className = "flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition";
+                    document.getElementById('tab-content-config').classList.remove('hidden');
+                    document.getElementById('tab-content-levels').classList.add('hidden');
+                }
+            }
+
+            switchRightTab(tab) {
+                this.state.rightTab = tab;
+                ['metrics', 'math', 'charts'].forEach(t => {
+                    document.getElementById(`right-tab-btn-${t}`).className = t === tab ? 
+                        "flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-teal-700 border-b-2 border-teal-700 bg-white transition" :
+                        "flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition";
+                    document.getElementById(`right-content-${t}`).classList.toggle('hidden', t !== tab);
+                });
+                if (tab === 'charts') {
+                    this.updateChartsData();
+                }
+            }
+
+            // --- RENDER UI & DOM UPDATES ---
+            fullUpdate() {
+                this.renderLevelsList();
+                this.renderMetrics();
+                this.renderAppliedMath();
+                this.update3DBuilding();
+                if (this.state.rightTab === 'charts') {
+                    this.updateChartsData();
+                }
+            }
+
+            renderLevelsList() {
+                const container = document.getElementById('levels-container');
+                container.innerHTML = '';
+
+                // Summary stats update
+                document.getElementById('summary-dimensions').innerText = `${this.state.lot.width}m × ${this.state.lot.length}m`;
+                document.getElementById('summary-lot-area').innerText = `${this.formatNumber(this.calculateLotArea())} m²`;
+                document.getElementById('summary-footprint').innerText = `${this.formatNumber(this.state.lot.footprint)} m²`;
+                document.getElementById('summary-level-count').innerText = this.state.levels.length;
+
+                this.state.levels.forEach((lvl, index) => {
+                    let levelNum = index + 1;
+                    let cost = this.calculateLevelCost(lvl);
+                    let card = document.createElement('div');
+                    card.className = `bg-white border rounded p-4 transition-all ${this.state.selectedLevelId === lvl.id ? 'border-teal-600 ring-1 ring-teal-600 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`;
+                    card.onclick = () => { this.state.selectedLevelId = lvl.id; this.highlightLevel3D(lvl.id); };
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center mb-3">
+                            <div class="flex items-center space-x-2">
+                                <span class="w-6 h-6 rounded bg-slate-900 text-white flex items-center justify-center font-mono text-xs font-bold">${levelNum}</span>
+                                <span class="text-xs font-bold text-slate-800 uppercase tracking-wide">Nivel ${levelNum}</span>
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <button onclick="event.stopPropagation(); app.duplicateLevel(${lvl.id})" title="Duplicar nivel" class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                </button>
+                                <button onclick="event.stopPropagation(); app.deleteLevel(${lvl.id})" title="Eliminar nivel" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 text-xs mb-3">
+                            <div>
+                                <label class="block text-[10px] uppercase font-semibold text-slate-400 mb-1">Uso Asignado</label>
+                                <select onchange="app.updateLevelProperty(${lvl.id}, 'use', this.value)" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-medium text-slate-800 focus:outline-none focus:border-teal-700">
+                                    <option value="Comercial" ${lvl.use === 'Comercial' ? 'selected' : ''}>Comercial</option>
+                                    <option value="Oficinas" ${lvl.use === 'Oficinas' ? 'selected' : ''}>Oficinas</option>
+                                    <option value="Residencial" ${lvl.use === 'Residencial' ? 'selected' : ''}>Residencial</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase font-semibold text-slate-400 mb-1">Altura (m)</label>
+                                <input type="number" min="2" max="10" step="0.05" value="${lvl.height}" onchange="app.updateLevelProperty(${lvl.id}, 'height', this.value)" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-mono text-slate-800 focus:outline-none focus:border-teal-700">
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center pt-2 border-t border-slate-100 text-[11px]">
+                            <span class="text-slate-500">Área: <strong class="font-mono text-slate-700">${this.formatNumber(this.state.lot.footprint)} m²</strong></span>
+                            <span class="text-slate-500">Costo: <strong class="font-mono text-teal-700">${this.formatCurrency(cost)}</strong></span>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            }
+
+            renderMetrics() {
+                let totalHeight = this.calculateTotalHeight();
+                let levelCount = this.state.levels.length;
+                let lotArea = this.calculateLotArea();
+                let constructedArea = this.calculateConstructionArea();
+                let volume = this.calculateVolume();
+                let coreArea = this.calculateCoreArea();
+                let usableArea = this.calculateUsableArea();
+                let totalBudget = this.calculateTotalCost();
+                let avgM2Cost = this.calculateAverageCostPerSquareMeter();
+
+                document.getElementById('metric-total-budget').innerText = this.formatCurrency(totalBudget);
+                document.getElementById('metric-avg-m2-cost').innerText = `${this.formatCurrency(avgM2Cost)} / m²`;
+                document.getElementById('metric-total-height').innerText = `${this.formatNumber(totalHeight)} m`;
+                document.getElementById('metric-level-count').innerText = levelCount;
+                document.getElementById('metric-lot-area').innerText = `${this.formatNumber(lotArea)} m²`;
+                document.getElementById('metric-constructed-area').innerText = `${this.formatNumber(constructedArea)} m²`;
+                document.getElementById('metric-volume').innerText = `${this.formatNumber(volume)} m³`;
+                document.getElementById('metric-core-area').innerText = `${this.formatNumber(coreArea)} m²`;
+                document.getElementById('metric-usable-area').innerText = `${this.formatNumber(usableArea)} m²`;
+                document.getElementById('metric-fixed-cost-display').innerText = this.formatCurrency(this.state.costs.fixed);
+            }
+
+            renderAppliedMath() {
+                let totalHeight = this.calculateTotalHeight();
+                let heightSubStr = this.state.levels.map(l => l.height.toFixed(2)).join(' + ');
+                document.getElementById('math-formula-height-sub').innerText = `H = ${heightSubStr}`;
+                document.getElementById('math-formula-height-res').innerText = `Resultado H = ${this.formatNumber(totalHeight)} m`;
+
+                let totalBudget = this.calculateTotalCost();
+                document.getElementById('math-formula-cost-sub').innerText = `Cₜ = Σ (Aᵢ × Vₘ₂) + C₀ = [Suma de ${this.state.levels.length} niveles] + ${this.formatCurrency(this.state.costs.fixed)}`;
+                document.getElementById('math-formula-cost-res').innerText = `Resultado Cₜ = ${this.formatCurrency(totalBudget)}`;
+
+                let x = this.state.levels.length;
+                let b = this.state.costs.bParam;
+                let core = this.calculateCoreArea();
+                document.getElementById('math-formula-core-sub').innerText = `A(${x}) = -(${x})² + (${b})(${x}) = -${x*x} + ${b*x}`;
+                document.getElementById('math-formula-core-res').innerText = `Resultado A(x) = ${this.formatNumber(core)} m²`;
+            }
+
+            // --- THREE.JS 3D VISUALIZATION ---
+            initThreeJS() {
+                const container = document.getElementById('canvas-container');
+                container.innerHTML = '';
+
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x090d16);
+
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+
+                // Perspective Camera
+                this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+                this.camera.position.set(35, 25, 40);
+
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.renderer.setSize(width, height);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                container.appendChild(this.renderer.domElement);
+
+                // Controls
+                this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.05;
+                this.controls.target.set(0, 5, 0);
+
+                // Lights
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+                this.scene.add(ambientLight);
+
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                dirLight.position.set(50, 80, 50);
+                this.scene.add(dirLight);
+
+                const pointLight = new THREE.PointLight(0x0f766e, 1, 100);
+                pointLight.position.set(0, 20, 0);
+                this.scene.add(pointLight);
+
+                // Grid Helper
+                this.gridHelper = new THREE.GridHelper(100, 50, 0x0f766e, 0x334155);
+                this.gridHelper.position.y = -0.01;
+                this.scene.add(this.gridHelper);
+
+                // Raycasting for hover & click
+                this.renderer.domElement.addEventListener('mousemove', (e) => this.onMouseMove(e));
+                this.renderer.domElement.addEventListener('click', (e) => this.onMouseClick(e));
+
+                // Animation loop
+                const animate = () => {
+                    requestAnimationFrame(animate);
+                    this.controls.update();
+                    this.renderer.render(this.scene, this.camera);
+                };
+                animate();
+            }
+
+            onWindowResize() {
+                const container = document.getElementById('canvas-container');
+                if (!container || !this.renderer) return;
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                if (this.isOrthographic) {
+                    const aspect = width / height;
+                    const d = 25;
+                    this.camera.left = -d * aspect;
+                    this.camera.right = d * aspect;
+                    this.camera.top = d;
+                    this.camera.bottom = -d;
+                } else {
+                    this.camera.aspect = width / height;
+                }
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(width, height);
+            }
+
+            resetCamera() {
+                if (!this.camera || !this.controls) return;
+                this.camera.position.set(35, 25, 40);
+                this.controls.target.set(0, 5, 0);
+                this.controls.update();
+            }
+
+            toggleGrid() {
+                this.showGrid = !this.showGrid;
+                if (this.gridHelper) this.gridHelper.visible = this.showGrid;
+                document.getElementById('btn-toggle-grid').innerText = `Cuadrícula: ${this.showGrid ? 'On' : 'Off'}`;
+            }
+
+            toggleProjection() {
+                const container = document.getElementById('canvas-container');
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                const aspect = width / height;
+
+                if (this.isOrthographic) {
+                    // Switch to Perspective
+                    this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+                    this.camera.position.set(35, 25, 40);
+                    this.isOrthographic = false;
+                    document.getElementById('btn-toggle-projection').innerText = 'Perspectiva';
+                } else {
+                    // Switch to Orthographic
+                    const d = 25;
+                    this.camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 0.1, 1000);
+                    this.camera.position.set(35, 25, 40);
+                    this.isOrthographic = true;
+                    document.getElementById('btn-toggle-projection').innerText = 'Ortográfica';
+                }
+                this.controls.object = this.camera;
+                this.controls.update();
+            }
+
+            update3DBuilding() {
+                if (!this.scene) return;
+
+                // Remove existing level meshes
+                this.levelMeshes.forEach(m => this.scene.remove(m));
+                this.levelMeshes = [];
+
+                // Terrain / Lot base
+                if (this.terrainMesh) this.scene.remove(this.terrainMesh);
+                let lotW = Math.sqrt(this.state.lot.footprint); // proportional square representation for visual simplicity
+                let lotL = lotW;
+                
+                const terrainGeo = new THREE.PlaneGeometry(Math.max(this.state.lot.width, 30), Math.max(this.state.lot.length, 30));
+                const terrainMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9, metalness: 0.1 });
+                this.terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+                this.terrainMesh.rotation.x = -Math.PI / 2;
+                this.terrainMesh.position.y = -0.05;
+                this.scene.add(this.terrainMesh);
+
+                // Build levels vertically
+                let currentY = 0;
+                let buildingSideW = Math.sqrt(this.state.lot.footprint);
+
+                this.state.levels.forEach((lvl, index) => {
+                    let h = Number(lvl.height);
+                    let geo = new THREE.BoxGeometry(buildingSideW, h, buildingSideW);
+                    
+                    // Color based on use
+                    let color = 0x10b981; // default green/emerald (residential)
+                    if (lvl.use === 'Comercial') color = 0xd97706; // amber
+                    else if (lvl.use === 'Oficinas') color = 0x0284c7; // sky blue
+
+                    const mat = new THREE.MeshStandardMaterial({ 
+                        color: color, 
+                        roughness: 0.3, 
+                        metalness: 0.2,
+                        transparent: true,
+                        opacity: 0.92
+                    });
+
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.position.set(0, currentY + h / 2, 0);
+                    mesh.userData = { levelId: lvl.id, levelNumber: index + 1, use: lvl.use, height: h };
+                    
+                    // Add wireframe edge for architectural feel
+                    const edges = new THREE.EdgesGeometry(geo);
+                    const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25 });
+                    const wireframe = new THREE.LineSegments(edges, lineMat);
+                    mesh.add(wireframe);
+
+                    // Add central core volume representation
+                    let coreSize = Math.max(1.5, buildingSideW * 0.25);
+                    let coreGeo = new THREE.BoxGeometry(coreSize, h, coreSize);
+                    let coreMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.5 });
+                    let coreMesh = new THREE.Mesh(coreGeo, coreMat);
+                    coreMesh.position.set(0, 0, 0);
+                    mesh.add(coreMesh);
+
+                    this.scene.add(mesh);
+                    this.levelMeshes.push(mesh);
+
+                    currentY += h;
+                });
+
+                // Update orbit target height
+                this.controls.target.y = currentY / 2;
+            }
+
+            highlightLevel3D(id) {
+                this.levelMeshes.forEach(mesh => {
+                    if (mesh.userData.levelId === id) {
+                        mesh.material.emissive = new THREE.Color(0x334155);
+                    } else {
+                        mesh.material.emissive = new THREE.Color(0x000000);
+                    }
+                });
+            }
+
+            onMouseMove(event) {
+                const rect = this.renderer.domElement.getBoundingClientRect();
+                this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                const intersects = this.raycaster.intersectObjects(this.levelMeshes);
+
+                const tooltip = document.getElementById('viewer-tooltip');
+                if (intersects.length > 0) {
+                    const data = intersects[0].object.userData;
+                    document.getElementById('tooltip-title').innerText = `Nivel ${data.levelNumber} (${data.use})`;
+                    document.getElementById('tooltip-body').innerHTML = `
+                        Altura: ${data.height.toFixed(2)} m<br>
+                        Área: ${this.formatNumber(this.state.lot.footprint)} m²<br>
+                        Uso: ${data.use}
+                    `;
+                    tooltip.classList.remove('hidden');
+                    tooltip.style.left = `${event.clientX - rect.left + 15}px`;
+                    tooltip.style.top = `${event.clientY - rect.top - 40}px`;
+                } else {
+                    tooltip.classList.add('hidden');
+                }
+            }
+
+            onMouseClick(event) {
+                const rect = this.renderer.domElement.getBoundingClientRect();
+                this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                const intersects = this.raycaster.intersectObjects(this.levelMeshes);
+
+                if (intersects.length > 0) {
+                    const data = intersects[0].object.userData;
+                    this.state.selectedLevelId = data.levelId;
+                    this.highlightLevel3D(data.levelId);
+                    this.renderLevelsList();
+                }
+            }
+
+            // --- CHART.JS INITIALIZATION & UPDATES ---
+            initCharts() {
+                // Chart 1: Budget Growth
+                const ctxBudget = document.getElementById('chart-budget').getContext('2d');
+                this.budgetChart = new Chart(ctxBudget, {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ label: 'Costo Acumulado (COP)', data: [], borderColor: '#0f766e', backgroundColor: 'rgba(15, 118, 110, 0.1)', fill: true, tension: 0.2 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => '$ ' + (v/1000000).toFixed(0) + 'M' } } } }
+                });
+
+                // Chart 2: Areas Comparison
+                const ctxAreas = document.getElementById('chart-areas').getContext('2d');
+                this.areasChart = new Chart(ctxAreas, {
+                    type: 'bar',
+                    data: { labels: ['Área Construida', 'Área Núcleo', 'Área Útil'], datasets: [{ data: [0, 0, 0], backgroundColor: ['#0f766e', '#64748b', '#0284c7'] }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+
+                // Chart 3: Height Accumulation
+                const ctxHeight = document.getElementById('chart-height').getContext('2d');
+                this.heightChart = new Chart(ctxHeight, {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ label: 'Altura Acumulada (m)', data: [], borderColor: '#0284c7', backgroundColor: 'rgba(2, 132, 199, 0.1)', fill: true, tension: 0.1 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+            }
+
+            updateChartsData() {
+                if (!this.budgetChart || !this.areasChart || !this.heightChart) return;
+
+                let labels = [];
+                let budgetData = [];
+                let heightData = [];
+                let runningBudget = Number(this.state.costs.fixed);
+                let runningHeight = 0;
+
+                this.state.levels.forEach((lvl, idx) => {
+                    labels.push(`N${idx + 1}`);
+                    runningBudget += this.calculateLevelCost(lvl);
+                    budgetData.push(runningBudget);
+                    runningHeight += Number(lvl.height);
                     heightData.push(runningHeight);
                 });
 
