@@ -1,0 +1,25 @@
+                    heightData.push(runningHeight);
+                });
+
+                this.budgetChart.data.labels = labels;
+                this.budgetChart.data.datasets[0].data = budgetData;
+                this.budgetChart.update();
+
+                this.areasChart.data.datasets[0].data = [
+                    this.calculateConstructionArea(),
+                    Math.max(0, this.calculateCoreArea()),
+                    this.calculateUsableArea()
+                ];
+                this.areasChart.update();
+
+                this.heightChart.data.labels = labels;
+                this.heightChart.data.datasets[0].data = heightData;
+                this.heightChart.update();
+            }
+        }
+
+        // Initialize application instance globally
+        const app = new DensificaApp();
+    </script>
+</body>
+</html>
